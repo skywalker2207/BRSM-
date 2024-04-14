@@ -1,0 +1,261 @@
+---
+title: "Multigroup confirmatory factor analysis"
+author: "Nikhil Agrawal"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+
+# Load packags
+```{r}
+library(lavaan)
+library(MASS)
+library(psych)
+library(sirt)
+```
+
+# Load data
+```{r}
+data <- read.csv("Final_COVIDiSTRESS_Vol2_cleaned.csv")
+# summary(data)
+```
+
+# Data preparation
+## General
+
+```{r}
+data <- data[order(data$UserLanguage), ]
+languages <- labels(table(data$UserLanguage))[[1]]
+print(length(languages))
+
+# Remove languages whose count is less than 100
+data <- data[data$UserLanguage %in% languages[which(table(data$UserLanguage) > 100)], ]
+languages <- labels(table(data$UserLanguage))[[1]]
+print(length(languages))
+```
+
+## Vaccine attitudes
+
+```{r}
+data$vaccine_attitudes_4_midneutral <- 8 - data$vaccine_attitudes_4_midneutral
+data$vaccine_attitudes_5_midneutral <- 8 - data$vaccine_attitudes_5_midneutral
+
+va_vars <- c(
+    "vaccine_attitudes_9_midneutral",
+    "vaccine_attitudes_2_midneutral",
+    "vaccine_attitudes_3_midneutral", "vaccine_attitudes_5_midneutral",
+    "vaccine_attitudes_6_midneutral"
+)
+
+consp_vars <- c(
+    "conspirational_think_1", "conspirational_think_2",
+    "conspirational_think_3", "conspirational_think_4"
+)
+
+anti_vars <- c('antiexpert_1','antiexpert_2','antiexpert_3')
+```
+
+
+# Confirmatory factor analysis
+## Choose measures
+We choose the traditional criteria for configural level of invariance, which is
+RMSEA $\leq$ .08, SRMR $\leq$ .08, CFI $\geq$ .90, TLI $\geq$ .90
+```{r}
+fits <- c("rmsea.scaled", "srmr", "cfi.scaled", "tli.scaled")
+```
+
+## Vaccine attitudes
+
+```{r}
+cfa.eq.va <- 'VA =~ vaccine_attitudes_9_midneutral + 
+vaccine_attitudes_2_midneutral + vaccine_attitudes_3_midneutral+
+vaccine_attitudes_5_midneutral + vaccine_attitudes_6_midneutral'
+
+cfa.va.config <- cfa(cfa.eq.va,
+    data = data,
+    group = "UserLanguage", estimator = "WLSMV"
+)
+fitmeasures(cfa.va.config)[fits]
+```
+The data above doesn't fit our configural invariance criteria.
+We check for metric invariance
+
+```{r}
+cfa.a.metric <- cfa(cfa.eq.va,
+    data = data, group = "UserLanguage",
+    estimator = "WLSMV", group.equal = "loadings"
+)
+fitmeasures(cfa.a.metric)[fits]
+
+fitmeasures(cfa.a.metric)[fits] - fitmeasures(cfa.va.config)[fits]
+```
+
+The data above doesn't fit our metric invariance criteria either. Thus we need to align our data.
+
+### Aligning the data
+```{r results=FALSE, message=FALSE, warning=FALSE}
+# Extract parameters
+par.va <- invariance_alignment_cfa_config(
+    dat = data[, va_vars], group = data$UserLanguage
+)
+```
+```{r}
+# Alignment
+mod1.va <- invariance.alignment(
+    lambda = par.va$lambda,
+    nu = par.va$nu,
+    align.scale = c(0.2, 0.4), align.pow = c(0.25, 0.25)
+)
+
+mod1.va$es.invariance['R2',]
+```
+
+## Conspirational Thinking
+
+```{r}
+cfa.eq.consp <- 'CONSP =~ conspirational_think_1 + conspirational_think_2+
+  conspirational_think_3 + conspirational_think_4'
+
+cfa.consp.config <- cfa(cfa.eq.consp,
+    data = data,
+    group = "UserLanguage", estimator = "WLSMV"
+)
+fitmeasures(cfa.consp.config)[fits]
+```
+
+```{r}
+cfa.consp.metric <- cfa(cfa.eq.consp,
+    data = data, group = "UserLanguage",
+    estimator = "WLSMV", group.equal = "loadings"
+)
+fitmeasures(cfa.consp.metric)[fits]
+
+fitmeasures(cfa.consp.metric)[fits] - fitmeasures(cfa.consp.config)[fits]
+```
+
+```{r results=FALSE, message=FALSE, warning=FALSE}
+# Extract parameters
+par.consp <- invariance_alignment_cfa_config(
+    dat = data[, consp_vars], group = data$UserLanguage
+)
+```
+
+```{r}
+# Alignment
+mod1.consp <- invariance.alignment(
+    lambda = par.consp$lambda,
+    nu = par.consp$nu,
+    align.scale = c(0.2, 0.4), align.pow = c(0.25, 0.25)
+)
+
+mod1.consp$es.invariance['R2',]
+```
+
+## Anti expert attitudes
+```{r}
+cfa.eq.anti = "ANTI =~ antiexpert_1 + antiexpert_2 + antiexpert_3"
+
+cfa.anti.config <- cfa(cfa.eq.anti,
+    data = data,
+    group = "UserLanguage", estimator = "WLSMV"
+)
+
+fitmeasures(cfa.anti.config)[fits]
+```
+
+```{r}
+cfa.anti.metric <- cfa(cfa.eq.anti,
+    data = data, group = "UserLanguage",
+    estimator = "WLSMV", group.equal = "loadings"
+)
+fitmeasures(cfa.anti.metric)[fits]
+
+fitmeasures(cfa.anti.metric)[fits] - fitmeasures(cfa.anti.config)[fits]
+```
+
+```{r results=FALSE, message=FALSE, warning=FALSE}
+# Extract parameters
+par.anti <- invariance_alignment_cfa_config(
+    dat = data[, anti_vars], group = data$UserLanguage
+)
+```
+
+```{r}
+# Alignment
+mod1.anti <- invariance.alignment(
+    lambda = par.anti$lambda,
+    nu = par.anti$nu,
+    align.scale = c(0.2, 0.4), align.pow = c(0.25, 0.25)
+)
+
+mod1.anti$es.invariance['R2',]
+```
+
+# Factor score calculation
+
+```{r}
+aligned.factor.scores <- function(lambda,nu,y){
+  lambda1 <- ginv((lambda))
+  ns <- nrow(y)
+  nus <- matrix(nu,nrow=ns,ncol=length(nu),byrow=T)
+  y_nu <- y - nus
+  F <- lambda1 %*% t(as.matrix(y_nu))
+}
+
+
+# Iterate over languages
+for (i in 1:length(languages)) {
+    # Select data
+    lang <- languages[i]
+    data_lang <- data[data$UserLanguage == lang, ]
+    
+    ns.va <- aligned.factor.scores(
+        mod1.va$lambda.aligned[i, ], mod1.va$nu.aligned[i, ],
+        data_lang[, va_vars]
+    )
+    
+    ns.consp <- aligned.factor.scores(
+        mod1.consp$lambda.aligned[i, ], mod1.consp$nu.aligned[i, ],
+        data_lang[, consp_vars]
+    )
+
+    ns.anti <- aligned.factor.scores(
+        mod1.anti$lambda.aligned[i, ], mod1.anti$nu.aligned[i, ],
+        data_lang[, anti_vars]
+    )
+
+    # Calculate factor scores
+    data_lang$vx <- t(ns.va)
+    data_lang$consp <- t(ns.consp)
+    data_lang$anti <- t(ns.anti)
+    
+    # Save data
+    if (i == 1) {
+        data_aligned <- data_lang
+    } else {
+        data_aligned <- rbind(data_aligned, data_lang)
+    }
+}
+```
+
+# Data filteration
+
+```{r}
+# Remove countries with less than 30 respondents
+
+data_aligned <- data_aligned[order(data_aligned$residing_country), ]
+countries <- labels(table(data_aligned$residing_country))[[1]]
+print(length(countries))
+
+data_filtered <- data_aligned[data_aligned$residing_country %in% countries[which(table(data_aligned$residing_country) > 100)], ]
+countries <- labels(table(data_filtered$residing_country))[[1]]
+print(length(countries))
+```
+
+```{r}
+summary(data_filtered)
+save(data_filtered, file = "data_filtered.RData")
+```

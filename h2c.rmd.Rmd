@@ -1,0 +1,203 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+library(lmerTest)
+library(brms)
+#library(EMAtools)
+```
+
+
+# load aligned data
+```{r}
+# Load the .RData file
+load(file = 'Vaccine_aligned.RData')
+
+```
+
+# standardize willingness and VAQB
+```{r}
+data.filtered$vx <- scale(data.filtered$vx)
+data.filtered$consp <- scale(data.filtered$consp)
+data.filtered$anti <- scale(data.filtered$anti)
+data.filtered$trust_6 <- scale(data.filtered$trust_6)
+data.filtered$trust_7 <- scale(data.filtered$trust_7)
+```
+
+# H2c : vx ~ consp
+# model 0 (null model) demo and random intercepts
+```{r}
+h2c.0 <- lmer(vx ~ gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1|residing_country), data=data.filtered)
+# model 1 = model 1 + predictor
+h2c.1 <- lmer(vx ~ consp+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1|residing_country), data=data.filtered)
+# model 2 = model 1 + random slopes
+h2c.2 <- lmer(vx ~ consp+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1+consp|residing_country), data=data.filtered)
+
+
+#model 0
+b.h2c.0 <- brms::brm(vx ~ gender + education + work_location + age+
+                       SSS_faml+ relationship_status+
+                       (1|residing_country),
+                     data=data.filtered, family = gaussian(),
+                     cores=4,chains=4, save_pars = save_pars(all = T),
+                     sample_prior ='yes', seed=1660415)
+
+#model 1
+b.h2c.1 <- brms::brm(vx ~ consp+gender + education + work_location + age+
+                       SSS_faml+ relationship_status+
+                       (1|residing_country),
+                     data=data.filtered, family = gaussian(),
+                     cores=4,chains=4, save_pars = save_pars(all = T),
+                     sample_prior ='yes', seed=1660415,prior=prior.coef)
+
+#model 2
+b.h2c.2 <- brms::brm(vx ~ consp+gender + education + work_location + age+
+                       SSS_faml+ relationship_status+
+                       (1+consp|residing_country),
+                     data=data.filtered, family = gaussian(),
+                     cores=4,chains=4, save_pars = save_pars(all = T),
+                     sample_prior ='yes', seed=1660415,prior=prior.coef)
+
+b.h2c.2
+
+# model bayes factors
+bf.h2c.1 <- bayes_factor(b.h2c.1,b.h2c.0)
+bf.h2c.2 <- bayes_factor(b.h2c.2,b.h2c.0)
+bf.h2c.21 <- bayes_factor(b.h2c.2,b.h2c.1)
+
+log(as.numeric(bf.h2c.1[1]))
+log(as.numeric(bf.h2c.2[1]))
+log(as.numeric(bf.h2c.21[1]))
+
+
+# predictor bayes factor check
+# one direction -> positive
+hypothesis(b.h2c.2,'consp<0')
+```
+
+
+# effect size
+```{r}
+
+#### H2d/e
+# null mediation?
+model0_mediator <- bf(trust_6~ gender + education + work_location + age+
+                        SSS_faml+ relationship_status + (1|residing_country))
+model0_outcome <- bf(vx ~  gender + education + work_location + age+
+                       SSS_faml+ relationship_status+ (1|residing_country))
+options(width = 2000)
+med0_result = brm(
+  model0_mediator + model0_outcome + set_rescor(F),
+  data=data.filtered,
+  family = gaussian(),
+  cores=4,chains=4, save_pars = save_pars(all = T),
+  sample_prior ='yes', seed=1660415,prior=prior.coef
+)
+
+# mediation without intercepts
+model1_mediator <- bf(trust_6~consp + gender + education + work_location + age+
+                       SSS_faml+ relationship_status + (1|residing_country))
+model1_outcome <- bf(vx ~ consp+trust_6 + gender + education + work_location + age+
+                      SSS_faml+ relationship_status+ (1|residing_country))
+options(width = 2000)
+med1_result = brm(
+  model1_mediator + model1_outcome + set_rescor(F),
+  data=data.filtered,
+  family = gaussian(),
+  cores=4,chains=4, save_pars = save_pars(all = T),
+  sample_prior ='yes', seed=1660415,prior=prior.coef
+)
+bayestestR::mediation(med1_result)
+
+# mediation model (full)
+model_mediator <- bf(trust_6~consp + gender + education + work_location + age+
+                       SSS_faml+ relationship_status + (1+consp|residing_country))
+model_outcome <- bf(vx ~ consp+trust_6 + gender + education + work_location + age+
+                      SSS_faml+ relationship_status+ (1+trust_6+consp|residing_country))
+
+med_result = brm(
+  model_mediator + model_outcome + set_rescor(F),
+  data=data.filtered,
+  family = gaussian(),
+  cores=4,chains=4, save_pars = save_pars(all = T),
+  sample_prior ='yes', seed=1660415,prior=prior.coef
+)
+options(width = 2000)
+summary(med_result)
+bayestestR::mediation(med_result)
+
+
+# compare models
+bf.med.10 <- bayes_factor(med1_result, med0_result)
+bf.med.20 <- bayes_factor(med_result, med0_result)
+bf.med.21 <- bayes_factor(med_result, med1_result)
+
+log(bf.med.21$bf[1])
+
+save.image(file='Vaccine_H2.RData')
+```
+```{r}
+model30_mediator <- bf(trust_7~ gender + education + work_location + age+
+                        SSS_faml+ relationship_status + (1|residing_country))
+model30_outcome <- bf(vx ~  gender + education + work_location + age+
+                       SSS_faml+ relationship_status+ (1|residing_country))
+options(width = 2000)
+med30_result = brm(
+  model30_mediator + model30_outcome + set_rescor(F),
+  data=data.filtered,
+  family = gaussian(),
+  cores=4,chains=4, save_pars = save_pars(all = T),
+  sample_prior ='yes', seed=1660415,prior=prior.coef
+)
+
+# mediation without intercepts
+model31_mediator <- bf(trust_7~anti + gender + education + work_location + age+
+                       SSS_faml+ relationship_status + (1|residing_country))
+model31_outcome <- bf(vx ~ anti+trust_7 + gender + education + work_location + age+
+                      SSS_faml+ relationship_status+ (1|residing_country))
+options(width = 2000)
+med31_result = brm(
+  model31_mediator + model31_outcome + set_rescor(F),
+  data=data.filtered,
+  family = gaussian(),
+  cores=4,chains=4, save_pars = save_pars(all = T),
+  sample_prior ='yes', seed=1660415,prior=prior.coef
+)
+bayestestR::mediation(med31_result)
+
+# mediation model (full)
+
+model3_mediator <- bf(trust_7~anti + gender + education + work_location + age+
+                       SSS_faml+ relationship_status + (1+anti|residing_country))
+model3_outcome <- bf(vx ~ anti+trust_7 + gender + education + work_location + age+
+                      SSS_faml+ relationship_status+ (1+trust_7+anti|residing_country))
+
+med3_result = brm(
+  model3_mediator + model3_outcome + set_rescor(F),
+  data=data.filtered,
+  family = gaussian(),
+  cores=4,chains=4, save_pars = save_pars(all = T),
+  sample_prior ='yes', seed=1660415,prior=prior.coef)
+
+options(width = 2000)
+summary(med3_result)
+bayestestR::mediation(med3_result)
+
+
+# compare models
+bf.med3.10 <- bayes_factor(med31_result, med30_result)
+bf.med3.20 <- bayes_factor(med3_result, med30_result)
+bf.med3.21 <- bayes_factor(med3_result, med31_result)
+
+log(bf.med3.21$bf[1])
+
+```

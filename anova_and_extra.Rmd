@@ -1,0 +1,228 @@
+---
+title: "COVIDiSTRESS_Round2_Cleaning"
+author: "Nikhil "
+date: "12/4/2024"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+
+
+```{r}
+library (lmerTest)
+library (brms)
+#library (EMAtools)
+library (ggplot2)
+#library (sjPlot)
+library(palmerpenguins)
+```
+
+
+```{r}
+#load aligned rdata file
+load((file='Vaccine_aligned.RData'))
+
+head(data.filtered)
+
+data.filtered$vx <- scale(data.filtered$vx)
+data.filtered$consp <- scale(data.filtered$consp)
+data.filtered$anti <- scale(data.filtered$anti)
+data.filtered$trust_6 <- scale(data.filtered$trust_6)
+data.filtered$trust_7 <- scale(data.filtered$trust_7)
+
+```
+
+```{r}
+fit <- lmer(vx ~ trust_6+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1+trust_6|residing_country), data=data.filtered, na.action = na.exclude)
+
+summary(fit)
+
+data.filtered <- data.filtered[!is.na(data.filtered$trust_6),]
+labels <- c("0","1","2","3","4","5","6","7","8","9","10")
+colors <- colorRampPalette(c("red", "green"))(11)
+print(colors)
+colours = c("#FF0000", "#E51900", "#CC3300", "#B24C00", "#996600", "#7F7F00", "#659900", "#4CB200", "#32CC00", "#19E500", "#00FF00")
+# create a boxplot for every value of x ( between 0 and 10 )
+ggplot(data.filtered, aes(x = factor(trust_6), y = vx, fill=factor(trust_6))) +
+    geom_boxplot() +
+    # set y axis limits between -1 and 1
+    scale_fill_manual(values = colours) +
+    # scale_fill_gradient(colours = colors) +
+    scale_x_discrete(labels=labels)+
+    # scale_fill_brewer(palette = "Dark2") +
+    ylim(-2, 1) +
+    #no legend
+    theme(legend.position="none") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+```{r}
+data.filtered <- data.filtered[!is.na(data.filtered$trust_7),]
+labels <- c("0","1","2","3","4","5","6","7","8","9","10")
+colors <- colorRampPalette(c("red", "green"))(11)
+print(colors)
+colours = c("#FF0000", "#E51900", "#CC3300", "#B24C00", "#996600", "#7F7F00", "#659900", "#4CB200", "#32CC00", "#19E500", "#00FF00")
+# create a boxplot for every value of x ( between 0 and 10 )
+ggplot(data.filtered, aes(x = factor(trust_7), y = vx, fill=factor(trust_7))) +
+    geom_boxplot() +
+    # set y axis limits between -1 and 1
+    scale_fill_manual(values = colours) +
+    # scale_fill_gradient(colours = colors) +
+    scale_x_discrete(labels=labels)+
+    # scale_fill_brewer(palette = "Dark2") +
+    ylim(-2, 1) +
+    #no legend
+    theme(legend.position="none") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+
+
+
+
+
+```{r}
+fit <- lmer(vx ~ trust_6+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1+trust_6|residing_country), data=data.filtered, na.action = na.exclude)
+
+summary(fit)
+
+data.filtered <- data.filtered[!is.na(data.filtered$trust_6),]
+labels <- c("0","1","2","3","4","5","6","7","8","9","10")
+colors <- colorRampPalette(c("red", "green"))(11)
+print(colors)
+colours = c("#FF0000", "#E51900", "#CC3300", "#B24C00", "#996600", "#7F7F00", "#659900", "#4CB200", "#32CC00", "#19E500", "#00FF00")
+# create a boxplot for every value of x ( between 0 and 10 )
+ggplot(data.filtered, aes(x = factor(trust_6), y = consp, fill=factor(trust_6))) +
+    geom_boxplot() +
+    # set y axis limits between -1 and 1
+    scale_fill_manual(values = colours) +
+    # scale_fill_gradient(colours = colors) +
+    scale_x_discrete(labels=labels)+
+    # scale_fill_brewer(palette = "Dark2") +
+    ylim(-2, 1) +
+    #no legend
+    theme(legend.position="none") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+```{r}
+data.filtered <- data.filtered[!is.na(data.filtered$trust_7),]
+labels <- c("0","1","2","3","4","5","6","7","8","9","10")
+colors <- colorRampPalette(c("red", "green"))(11)
+print(colors)
+colours = c("#FF0000", "#E51900", "#CC3300", "#B24C00", "#996600", "#7F7F00", "#659900", "#4CB200", "#32CC00", "#19E500", "#00FF00")
+# create a boxplot for every value of x ( between 0 and 10 )
+ggplot(data.filtered, aes(x = factor(trust_7), y = anti, fill=factor(trust_7))) +
+    geom_boxplot() +
+    # set y axis limits between -1 and 1
+    scale_fill_manual(values = colours) +
+    # scale_fill_gradient(colours = colors) +
+    scale_x_discrete(labels=labels)+
+    # scale_fill_brewer(palette = "Dark2") +
+    ylim(-2, 1) +
+    #no legend
+    theme(legend.position="none") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+
+
+
+
+```{r}
+# perform anova for data filtered
+res <- aov(vx ~ trust_6, data=data.filtered)    
+
+hist(res$residuals)
+
+library(car)
+qqPlot(res$residuals,
+  id = FALSE # id = FALSE to remove point identification
+)
+```
+
+
+```{r}
+fit0 <- lmer(vx ~ gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1|residing_country), data=data.filtered)
+
+fit2 <- lmer(vx ~ trust_6+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1|residing_country), data=data.filtered)
+fit1 <- lmer(vx~trust_6+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1+trust_6|residing_country),data=data.filtered)
+
+anova(fit0,fit1, fit2)
+summary(fit1)
+anova(fit1)
+# create QQ plot
+qqnorm(resid(fit1))
+qqline(resid(fit1))
+```
+
+
+```{r}
+
+# create a new data frame from data.filtered which omits all missing values in trust_7
+data.filtered <- data.filtered[!is.na(data.filtered$trust_7),]
+
+fit0h3b <- lmer(vx ~ gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1|residing_country), data=data.filtered)
+# model 1 = model 1 + predictor
+fit1h3b <- lmer(vx ~ trust_7+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1|residing_country), data=data.filtered)
+# model 2 = model 1 + random slopes
+fit2h3b <- lmer(vx ~ trust_7+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1+trust_7|residing_country), data=data.filtered)
+
+anova(fit0h3b,fit1h3b, fit2h3b)
+summary(fit2h3b)
+anova(fit2h3b)
+# create QQ plot
+qqnorm(resid(fit2h3b))
+qqline(resid(fit2h3b))
+
+
+
+
+```
+
+```{r}
+oneway.test(vx~trust_6 , data=data.filtered, var.equal=TRUE)
+```
+
+```{r}
+# perform cronbach alpha test on conpirational_think_1 to conspriational_think_4
+library(psych)
+class(data.filtered)
+alpha(data.filtered[c("conspirational_think_1","conspirational_think_2", "conspirational_think_3",  "conspirational_think_4")])
+# perform cronbach alpha test on vaccine_attitudes_1_midneutral to vaccine_attitudes_6_midneutral
+alpha(data.filtered[c("vaccine_attitudes_1_midneutral","vaccine_attitudes_2_midneutral", "vaccine_attitudes_3_midneutral",  "vaccine_attitudes_4_midneutral", "vaccine_attitudes_5_midneutral", "vaccine_attitudes_6_midneutral")])
+# perform cronbach alpha on anti_expert_1 to anti_expert_3
+alpha(data.filtered[c("antiexpert_1","antiexpert_2", "antiexpert_3")])
+
+```
+
+
+```{r}
+# calculate the spearman coefficient for the data
+cor.test(data.filtered$vx, data.filtered$trust_6, method = "spearman")
+cor.test(data.filtered$vx, data.filtered$trust_7, method = "spearman")
+cor.test(data.filtered$vx, data.filtered$anti, method = "spearman")
+cor.test(data.filtered$vx, data.filtered$consp, method = "spearman")
+cor.test(data.filtered$trust_6, data.filtered$consp, method = "spearman")
+cor.test(data.filtered$trust_7, data.filtered$anti, method = "spearman")
+cor.test(data.filtered$vaccine_0neutral, data.filtered$vx, method = "spearman")
+```

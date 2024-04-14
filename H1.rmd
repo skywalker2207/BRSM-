@@ -1,0 +1,104 @@
+---
+title: "Hypothesis 1 - Vaccine attitudes positively impact Vaccine willingness"
+author: "Atharva sujlegaonkar"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+
+# Load packages
+```{r}
+library(lmerTest)
+library(brms)
+library(lmtest)
+#library(EMAtools)
+library(car)
+library(lattice)
+```
+
+# Load data
+```{r}
+load("data_filtered.RData")
+```
+
+# Data preparation
+```{r}
+data_filtered$vx <- scale(data_filtered$vx)
+data_filtered$vaccine_0neutral <- scale(data_filtered$vaccine_0neutral)
+
+data_filtered <- data_filtered[complete.cases(data_filtered[, c(
+  "vx", "vaccine_0neutral", "gender", "education", "work_location", "age",
+  "SSS_faml", "relationship_status", "residing_country"
+)]), ]
+
+data_filtered$gender <- as.factor(data_filtered$gender)
+data_filtered$education <- as.factor(data_filtered$education)
+data_filtered$work_location <- as.factor(data_filtered$work_location)
+```
+
+# Correlation test
+```{r}
+cor.test(as.numeric(ordered(data_filtered$vaccine_0neutral)),
+  data_filtered$vx,
+  method = "spearman"
+)
+data_filtered$vaccine_0neutral <- ordered(data_filtered$vaccine_0neutral)
+```
+
+# Perform regression analysis
+
+```{r}
+prior.coef <- brms::prior(cauchy(0.,1),class='b')
+
+h1.0 <- brms::brm(vaccine_0neutral ~ gender + education + work_location + age+
+                      SSS_faml + relationship_status +
+                      (1 | residing_country),
+                    data=data_filtered, family = cumulative("logit"),
+                    cores=16,chains=4, save_pars = save_pars(all = T),
+                    sample_prior ='yes', seed=1660415,prior=prior.coef)
+
+h1.1 <- brms::brm(vaccine_0neutral ~ vx+gender + education + work_location + age+
+                      SSS_faml + relationship_status +
+                      (1 | residing_country),
+                    data=data_filtered, family = cumulative("logit"),
+                    cores=16,chains=4, save_pars = save_pars(all = T),
+                    sample_prior ='yes', seed=1660415,prior=prior.coef)
+
+h1.2 <- brms::brm(vaccine_0neutral ~ vx+gender + education + work_location + age+
+                      SSS_faml + relationship_status +
+                      (1 + vx | residing_country),
+                    data=data_filtered, family = cumulative("logit"),
+                    cores=16,chains=4, save_pars = save_pars(all = T),
+                    sample_prior ='yes', seed=1660415,prior=prior.coef)
+```
+
+```{r}
+save(h1.0, file = "h1.0.RData")
+save(h1.1, file = "h1.1.RData")
+save(h1.2, file = "h1.2.RData")
+```
+
+```{r}
+LOO(h1.0, h1.1, h1.2)
+```
+
+```{r}
+hypothesis(h1.2, "vx>0", alpha=0.05)
+```
+
+```{r}
+bayes_factor()
+```
+
+```{r}
+pp_check(h1.2)
+plot(h1.2)
+```
+
+```{r}
+summary(h1.2)
+```
+

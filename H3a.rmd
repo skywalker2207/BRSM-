@@ -1,0 +1,100 @@
+---
+title: "Hypothesis 1 - Vaccine attitudes positively impact Vaccine willingness"
+author: "Atharva Sujlegaonkar"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+
+# Load packages
+```{r}
+library(lmerTest)
+library(brms)
+library(lmtest)
+#library(EMAtools)
+library(car)
+library(lattice)
+```
+
+# Load data
+```{r}
+load("data_filtered.RData")
+```
+
+# Data preparation
+```{r}
+data_filtered$anti <- scale(data_filtered$anti)
+data_filtered$trust_7 <- scale(data_filtered$trust_7)
+
+data_filtered <- data_filtered[complete.cases(data_filtered[, c(
+  "anti", "trust_7", "gender", "education", "work_location", "age",
+  "SSS_faml", "relationship_status", "residing_country"
+)]), ]
+
+data_filtered$gender <- as.factor(data_filtered$gender)
+data_filtered$education <- as.factor(data_filtered$education)
+data_filtered$work_location <- as.factor(data_filtered$work_location)
+```
+
+# Correlation test
+```{r}
+cor.test(as.numeric(ordered(data_filtered$trust_7)),
+  data_filtered$anti,
+  method = "spearman"
+)
+data_filtered$trust_7 <- ordered(data_filtered$trust_7)
+```
+
+# Perform regression analysis
+
+```{r}
+prior.coef <- brms::prior(cauchy(0.,1),class='b')
+
+h3a.0 <- brms::brm(trust_7 ~ gender + education + work_location + age+
+                      SSS_faml + relationship_status +
+                      (1 | residing_country),
+                    data=data_filtered, family = cumulative("logit"),
+                    cores=16,chains=4, save_pars = save_pars(all = T),
+                    sample_prior ='yes', seed=1660415,prior=prior.coef)
+
+h3a.1 <- brms::brm(trust_7 ~ anti+gender + education + work_location + age+
+                      SSS_faml + relationship_status +
+                      (1 | residing_country),
+                    data=data_filtered, family = cumulative("logit"),
+                    cores=16,chains=4, save_pars = save_pars(all = T),
+                    sample_prior ='yes', seed=1660415,prior=prior.coef)
+
+h3a.2 <- brms::brm(trust_7 ~ anti+gender + education + work_location + age+
+                      SSS_faml + relationship_status +
+                      (1 + anti | residing_country),
+                    data=data_filtered, family = cumulative("logit"),
+                    cores=16,chains=4, save_pars = save_pars(all = T),
+                    sample_prior ='yes', seed=1660415,prior=prior.coef)
+```
+
+```{r}
+save(h3a.0, file = "h3a.0.RData")
+save(h3a.1, file = "h3a.1.RData")
+save(h3a.2, file = "h3a.2.RData")
+```
+
+```{r}
+LOO(h3a.0, h3a.1, h3a.2)
+```
+
+```{r}
+hypothesis(h3a.2, "anti<0", alpha=0.05)
+```
+
+```{r}
+pp_check(h3a.2)
+plot(h3a.2)
+```
+
+```{r}
+summary(h3a.2)
+```
+

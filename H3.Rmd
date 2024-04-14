@@ -1,0 +1,58 @@
+```{r}
+library(lmerTest)
+library(brms)
+#library(EMAtools)
+
+# load aligned data
+load((file='Vaccine_aligned.RData'))
+
+# standardize willingness and VAQB
+data.filtered$vx <- scale(data.filtered$vx)
+data.filtered$consp <- scale(data.filtered$consp)
+data.filtered$anti <- scale(data.filtered$anti)
+data.filtered$trust_6 <- scale(data.filtered$trust_6)
+data.filtered$trust_7 <- scale(data.filtered$trust_7)
+```
+
+
+```{r}
+h2c.0 <- lmer(vx ~ gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1|residing_country), data=data.filtered)
+# model 1 = model 1 + predictor
+h2c.1 <- lmer(vx ~ consp+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1|residing_country), data=data.filtered)
+# model 2 = model 1 + random slopes
+h2c.2 <- lmer(vx ~ consp+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1+consp|residing_country), data=data.filtered)
+#EMAtools::lme.dscore(h2c.2, type='lme4', data=data.filtered)
+
+#calculate t(4.32)
+
+# Print the summary of the model
+summary(h2c.2)
+```
+
+
+```{r}
+# H3c : vx ~ anti
+# model 0 (null model) demo and random intercepts
+h3c.0 <- lmer(vx ~ gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1|residing_country), data=data.filtered)
+# model 1 = model 1 + predictor
+h3c.1 <- lmer(vx ~ anti+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1|residing_country), data=data.filtered)
+# model 2 = model 1 + random slopes
+h3c.2 <- lmer(vx ~ anti+gender + education + work_location + age+
+                SSS_faml+ relationship_status+
+                (1+anti|residing_country), data=data.filtered)
+
+#EMAtools::lme.dscore(h3c.2, type='lme4', data=data.filtered) 
+
+summary(h3c.2)
+```
+
